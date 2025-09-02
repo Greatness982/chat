@@ -1,7 +1,9 @@
 import streamlit as st
-from datetime import datetime, timedelta
-import random
-import re
+from datetime import datetime
+import json
+from pathlib import Path
+
+ONLINE_FILE = Path("online_users.json")
 
 # ------------------ Utilities ------------------
 
@@ -10,8 +12,6 @@ def init_state():
         st.session_state.messages = []
     if "user_name" not in st.session_state:
         st.session_state.user_name = None
-    if "online_users" not in st.session_state:
-        st.session_state.online_users = {}
     if "current_channel" not in st.session_state:
         st.session_state.current_channel = "general"
     if "channels" not in st.session_state:
@@ -28,15 +28,27 @@ def add_message(sender, message, channel=None):
         st.session_state.channels[channel] = []
     st.session_state.channels[channel].append(message_data)
 
+# ------------------ Online Users (Shared JSON) ------------------
 
-# ------------------ Online users ------------------
-def update_online_users():
-    now = datetime.now()
-    inactive = [u for u, t in st.session_state.online_users.items() if now - t > timedelta(minutes=2)]
-    for u in inactive:
-        del st.session_state.online_users[u]
-    if st.session_state.user_name:
-        st.session_state.online_users[st.session_state.user_name] = now
+def load_online_users():
+    if ONLINE_FILE.exists():
+        with open(ONLINE_FILE, "r") as f:
+            return json.load(f)
+    return {}
+
+def save_online_users(users):
+    with open(ONLINE_FILE, "w") as f:
+        json.dump(users, f)
+
+def update_online_users(name):
+    now = datetime.now().timestamp()
+    users = load_online_users()
+    # remove inactive users (older than 2 minutes)
+    users = {u: t for u, t in users.items() if now - t < 120}
+    if name:
+        users[name] = now
+    save_online_users(users)
+    return list(users.keys())
 
 
 # ------------------ Streamlit UI ------------------
@@ -88,9 +100,9 @@ with st.sidebar:
 
     st.write("---")
     st.subheader("👥 Online Users")
-    update_online_users()  # Update each time sidebar is drawn
-    if st.session_state.online_users:
-        for user in st.session_state.online_users.keys():
+    online_users = update_online_users(st.session_state.user_name)
+    if online_users:
+        for user in online_users:
             st.write(f"✅ {user}")
     else:
         st.write("No users online")
@@ -104,7 +116,7 @@ st.header(f"Channel: #{st.session_state.current_channel}")
 chat_container = st.container()
 with chat_container:
     for msg in st.session_state.channels.get(st.session_state.current_channel, []):
-        color = "#012cee" if msg['sender'] == st.session_state.user_name else "#000000"
+        color = "#1100FA" if msg['sender'] == st.session_state.user_name else "#000000"
         st.markdown(f"""
             <div style='background-color: {color}; padding: 10px; border-radius: 10px; margin: 5px 0;'>
                 <strong>{msg['sender']}</strong> <small>{msg['timestamp']}</small>
@@ -118,7 +130,7 @@ with st.form("chat_form", clear_on_submit=True):
     with col1:
         message = st.text_input("Type your message:", key="chat_message_input")
     with col2:
-        submitted = st.form_submit_button("Send")  # submit button without key
+        submitted = st.form_submit_button("Send")
 
     if submitted and message:
         add_message(st.session_state.user_name, message)
