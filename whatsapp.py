@@ -2,6 +2,8 @@ import streamlit as st
 from datetime import datetime
 import json
 from pathlib import Path
+import pandas as pd
+import plotly.express as px
 
 ONLINE_FILE = Path("online_users.json")
 
@@ -18,11 +20,11 @@ def init_state():
         st.session_state.channels = {"general": []}
 
 
-def add_message(sender, message, channel=None):
+def add_message(sender, message, channel=None, chart=None):
     if channel is None:
         channel = st.session_state.current_channel
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    message_data = {"sender": sender, "message": message, "timestamp": timestamp, "channel": channel}
+    message_data = {"sender": sender, "message": message, "timestamp": timestamp, "channel": channel, "chart": chart}
     st.session_state.messages.append(message_data)
     if channel not in st.session_state.channels:
         st.session_state.channels[channel] = []
@@ -43,13 +45,11 @@ def save_online_users(users):
 def update_online_users(name):
     now = datetime.now().timestamp()
     users = load_online_users()
-    # remove inactive users (older than 2 minutes)
-    users = {u: t for u, t in users.items() if now - t < 120}
+    users = {u: t for u, t in users.items() if now - t < 120}  # remove inactive
     if name:
         users[name] = now
     save_online_users(users)
     return list(users.keys())
-
 
 # ------------------ Streamlit UI ------------------
 st.set_page_config(page_title="Human Chat App", page_icon="💬", layout="wide")
@@ -116,24 +116,34 @@ st.header(f"Channel: #{st.session_state.current_channel}")
 chat_container = st.container()
 with chat_container:
     for msg in st.session_state.channels.get(st.session_state.current_channel, []):
-        color = "#1100FA" if msg['sender'] == st.session_state.user_name else "#000000"
+        color = '#e1f5fe' if msg['sender'] == st.session_state.user_name else '#f5f5f5'
         st.markdown(f"""
             <div style='background-color: {color}; padding: 10px; border-radius: 10px; margin: 5px 0;'>
                 <strong>{msg['sender']}</strong> <small>{msg['timestamp']}</small>
                 <p style='margin: 5px 0;'>{msg['message']}</p>
             </div>
         """, unsafe_allow_html=True)
+        if msg.get('chart'):
+            st.plotly_chart(msg['chart'], use_container_width=True)
 
 # ------------------ Chat Input Form ------------------
 with st.form("chat_form", clear_on_submit=True):
-    col1, col2 = st.columns([4, 1])
+    col1, col2, col3 = st.columns([3, 3, 1])
     with col1:
         message = st.text_input("Type your message:", key="chat_message_input")
     with col2:
+        uploaded_file = st.file_uploader("Upload CSV for chart", type=["csv"], key="chart_upload")
+    with col3:
         submitted = st.form_submit_button("Send")
 
-    if submitted and message:
-        add_message(st.session_state.user_name, message)
+    chart = None
+    if uploaded_file:
+        df = pd.read_csv(uploaded_file)
+        if not df.empty:
+            chart = px.bar(df, x=df.columns[0], y=df.columns[1])
+
+    if submitted:
+        add_message(st.session_state.user_name, message, chart=chart)
 
 st.write("---")
 st.caption("Users will be marked offline after 2 minutes of inactivity.")
