@@ -42,15 +42,12 @@ def update_online_users():
 # ------------------ Streamlit UI ------------------
 st.set_page_config(page_title="Human Chat App", page_icon="💬", layout="wide")
 init_state()
-update_online_users()
 
 st.title("💬 Human-to-Human Chat App")
 
 # ------------------ Login ------------------
 if not st.session_state.user_name:
     st.subheader("Join the Chat")
-
-    # define default values
     name = ""
     channel = "general"
 
@@ -66,7 +63,6 @@ if not st.session_state.user_name:
         if st.session_state.current_channel not in st.session_state.channels:
             st.session_state.channels[st.session_state.current_channel] = []
         add_message("System", f"{name} joined the chat", st.session_state.current_channel)
-        st.session_state["__rerun"] = True
     st.stop()
 
 # ------------------ Sidebar ------------------
@@ -82,7 +78,6 @@ with st.sidebar:
             st.session_state.channels[channel_name] = []
             st.session_state.current_channel = channel_name
             add_message("System", f"{st.session_state.user_name} created this channel", channel_name)
-            st.session_state["__rerun"] = True
         else:
             st.error("Channel already exists")
 
@@ -90,25 +85,26 @@ with st.sidebar:
     for channel in st.session_state.channels.keys():
         if st.button(f"#{channel}", key=f"channel_{channel}_button"):
             st.session_state.current_channel = channel
-            st.session_state["__rerun"] = True
 
     st.write("---")
     st.subheader("👥 Online Users")
-    update_online_users()
-    for user in st.session_state.online_users.keys():
-        st.write(f"✅ {user}")
+    update_online_users()  # Update each time sidebar is drawn
+    if st.session_state.online_users:
+        for user in st.session_state.online_users.keys():
+            st.write(f"✅ {user}")
+    else:
+        st.write("No users online")
 
     if st.button("Leave Chat", key="leave_chat_button"):
         add_message("System", f"{st.session_state.user_name} left the chat", st.session_state.current_channel)
         st.session_state.user_name = None
-        st.session_state["__rerun"] = True
 
 # ------------------ Main Chat ------------------
 st.header(f"Channel: #{st.session_state.current_channel}")
 chat_container = st.container()
 with chat_container:
     for msg in st.session_state.channels.get(st.session_state.current_channel, []):
-        color = "#00aeff" if msg['sender'] == st.session_state.user_name else "#000000"
+        color = '#e1f5fe' if msg['sender'] == st.session_state.user_name else '#f5f5f5'
         st.markdown(f"""
             <div style='background-color: {color}; padding: 10px; border-radius: 10px; margin: 5px 0;'>
                 <strong>{msg['sender']}</strong> <small>{msg['timestamp']}</small>
@@ -122,11 +118,10 @@ with st.form("chat_form", clear_on_submit=True):
     with col1:
         message = st.text_input("Type your message:", key="chat_message_input")
     with col2:
-        submitted = st.form_submit_button("Send")  # <- removed invalid key argument
+        submitted = st.form_submit_button("Send")  # submit button without key
 
     if submitted and message:
         add_message(st.session_state.user_name, message)
-        st.session_state["__rerun"] = True
 
 st.write("---")
 st.caption("Users will be marked offline after 2 minutes of inactivity.")
