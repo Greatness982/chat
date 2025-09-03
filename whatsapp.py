@@ -116,7 +116,7 @@ st.header(f"Channel: #{st.session_state.current_channel}")
 chat_container = st.container()
 with chat_container:
     for msg in st.session_state.channels.get(st.session_state.current_channel, []):
-        color = '#e1f5fe' if msg['sender'] == st.session_state.user_name else '#f5f5f5'
+        color = "#2f00ff" if msg['sender'] == st.session_state.user_name else "#000000"
         st.markdown(f"""
             <div style='background-color: {color}; padding: 10px; border-radius: 10px; margin: 5px 0;'>
                 <strong>{msg['sender']}</strong> <small>{msg['timestamp']}</small>
